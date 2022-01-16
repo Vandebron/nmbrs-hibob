@@ -1,8 +1,8 @@
-# nmbrs-export
+# Nmbrs to Hibob salary slip export
 
 ![./resources/nmbrs_hibob.png](./resources/nmbrs_hibob_64x64.png)
 ```
-usage: export.py [-h] [--user USER] --token TOKEN [--run RUN] --year YEAR [--company COMPANY]
+usage: nmbrs_hibob [-h] [--user USER] --token TOKEN [--run RUN] --year YEAR [--company COMPANY]
 
 Export salary slip PDFs from Visma Nmbrs into Hibob
 

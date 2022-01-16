@@ -39,13 +39,13 @@ jobs:
           - os: macos-latest
             TARGET: macos
             CMD_BUILD: >
-              pipenv run pyinstaller -F --console -n nmbrs_hibob -i resources/nmbrs_hibob.icns export.py &&
+              pipenv run pyinstaller -F --console -n nmbrs_hibob -i resources/nmbrs_hibob.icns nmbrs_hibob.py &&
               cd dist/
             OUT_FILE_NAME: nmbrs_hibob
             ASSET_MIME: application/octet-stream
           - os: windows-latest
             TARGET: windows
-            CMD_BUILD: pyinstaller -F -w -n nmbrs_hibob -i resources/nmbrs_hibob.ico export.py
+            CMD_BUILD: pyinstaller -F -w -n nmbrs_hibob -i resources/nmbrs_hibob.ico nmbrs_hibob.py
             OUT_FILE_NAME: nmbrs_hibob.exe
             ASSET_MIME: application/vnd.microsoft.portable-executable
     steps:
