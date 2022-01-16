@@ -5,7 +5,8 @@ name = "pypi"
 
 [packages]
 lxml = "==4.7.1"
-requests = "*"
+requests = "==2.27.1"
+halo = "==0.0.31"
 
 [dev-packages]
 
