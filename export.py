@@ -6,6 +6,7 @@ from halo import Halo
 from progress.bar import ShadyBar
 from dataclasses import dataclass
 from zipfile import ZipFile
+import sys
 
 
 parser = argparse.ArgumentParser(description='Export salary slip PDFs from Visma Nmbrs into Hibob')
@@ -85,7 +86,7 @@ def do_request(body):
     response = requests.post('https://api.nmbrs.nl/soap/v2.1/CompanyService.asmx', data=req,
                              headers={'content-type': 'text/xml; charset=utf-8'})
     if not response.ok:
-        exit(response.text)
+        sys.exit(response.text)
     return ET.ElementTree(ET.fromstring(response.text))
 
 
@@ -130,7 +131,7 @@ def get_run_info(run):
     for run_info_element in run_infos:
         r = to_run_info(run_info_element)
         print(f'{r.id} {r.description} {r.period_start}-{r.period_end}')
-    exit()
+    sys.exit()
 
 
 run_info = get_run_info(run_arg)
