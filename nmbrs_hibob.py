@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from zipfile import ZipFile
 import sys
 
-
 parser = argparse.ArgumentParser(description='Export salary slip PDFs from Visma Nmbrs into Hibob')
 parser.add_argument('--user', '-u', help=f'API user', default='IT@vandebron.nl')
 parser.add_argument('--token', '-t', help=f'The API token https://support.nmbrs.com/hc/en-us/articles/'
@@ -32,6 +31,12 @@ class RunInfo:
     description: str
     period_start: str
     period_end: str
+
+
+@dataclass
+class Employee:
+    id: str
+    number: str
 
 
 def create_request(user, password, payload):
@@ -138,18 +143,21 @@ run_info = get_run_info(run_arg)
 
 spinner.text = f"Finding employees for {run_info.number} {run_info.description}"
 tree = do_request(get_employees(run_arg, year_arg))
-employees = tree.findall('.//cs:EmployeeId', namespaces=ns)
+employeesElements = tree.findall('.//cs:EmployeeIdNumber', namespaces=ns)
+employees = list(
+    map(lambda c: Employee(c.find('./cs:EmployeeId', namespaces=ns).text,
+                           c.find('./cs:EmployeeNumber', namespaces=ns).text),
+        employeesElements))
 spinner.succeed(f"Found {len(employees)} employees for run {run_info.description}")
 
 zip_file_name = f"run_{run_info.number}_{year_arg}.zip"
 with ShadyBar("Fetching salary slip for employees", max=len(employees)) as bar:
     with ZipFile(zip_file_name, 'w') as zip_file:
         for i, employee in enumerate(employees):
-            employee_id = employee.text
-            tree = do_request(get_payslip(employee_id, run_arg, year_arg))
+            tree = do_request(get_payslip(employee.id, run_arg, year_arg))
             pdf = tree.find('.//cs:PDF', namespaces=ns)
             pdfBinary = base64.b64decode(pdf.text)
-            zip_file.writestr(f"{employee_id}_{run_info.number}_{year_arg}.pdf", pdfBinary)
+            zip_file.writestr(f"{employee.number}_{run_info.number}_{year_arg}.pdf", pdfBinary)
             bar.next()
 
 spinner.succeed(f"Wrote results to {zip_file_name}")
