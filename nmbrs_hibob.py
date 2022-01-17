@@ -39,14 +39,28 @@ class Employee:
     number: str
 
 
-def create_request(user, password, payload):
+@dataclass
+class EmployeeDetails:
+    id: str
+    number: str
+    email: str
+
+
+com = {'ns': 'com', 'url': 'https://api.nmbrs.nl/soap/v2.1/CompanyService'}
+emp = {'ns': 'emp', 'url': 'https://api.nmbrs.nl/soap/v2.1/EmployeeService'}
+
+
+def create_request(user, password, payload, namespace):
+    ns_name = f"{namespace['ns']}"
+    ns_prefix = f"{ns_name}:"
+    url = namespace['url']
     template = f"""
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:com="https://api.nmbrs.nl/soap/v2.1/CompanyService">
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:{ns_name}="{url}">
     <soapenv:Header>
-      <com:AuthHeader>
-         <com:Username>{user}</com:Username>
-         <com:Token>{password}</com:Token>
-      </com:AuthHeader>
+      <{ns_prefix}AuthHeader>
+         <{ns_prefix}Username>{user}</{ns_prefix}Username>
+         <{ns_prefix}Token>{password}</{ns_prefix}Token>
+      </{ns_prefix}AuthHeader>
    </soapenv:Header>
    <soapenv:Body>
       {payload}
@@ -86,12 +100,20 @@ def get_payslip(employee_id, run_id, year):
       </com:SalaryDocuments_GetEmployeePayslipsPDFByRunCompany_v2>"""
 
 
-def do_request(body):
-    req = create_request(user_arg, password_arg, body)
-    response = requests.post('https://api.nmbrs.nl/soap/v2.1/CompanyService.asmx', data=req,
+def get_employee(employee_id):
+    return f"""<emp:PersonalInfo_GetCurrent>
+         <emp:EmployeeId>{employee_id}</emp:EmployeeId>
+      </emp:PersonalInfo_GetCurrent>"""
+
+
+def do_request(body, service):
+    req = create_request(user_arg, password_arg, body, service)
+    # print(req)
+    response = requests.post(f"{service['url']}.asmx", data=req,
                              headers={'content-type': 'text/xml; charset=utf-8'})
     if not response.ok:
         sys.exit(response.text)
+    # print(response.text)
     return ET.ElementTree(ET.fromstring(response.text))
 
 
@@ -99,13 +121,14 @@ ns = {
     'soap': "http://schemas.xmlsoap.org/soap/envelope/",
     'xsi': "http://www.w3.org/2001/XMLSchema-instance",
     'xsd': "http://www.w3.org/2001/XMLSchema",
-    'cs': 'https://api.nmbrs.nl/soap/v2.1/CompanyService'
+    'cs': 'https://api.nmbrs.nl/soap/v2.1/CompanyService',
+    'emp': 'https://api.nmbrs.nl/soap/v2.1/EmployeeService'
 }
 spinner = Halo(text='Determining company ID..', spinner='dots')
 spinner.start()
 
-tree = do_request(get_company_info())
-companies = tree.findall('.//cs:Company', namespaces=ns)
+pdf_tree = do_request(get_company_info(), com)
+companies = pdf_tree.findall('.//cs:Company', namespaces=ns)
 if len(companies) > 1:
     companies = list(
         map(lambda c: c.find('./cs:ID', namespaces=ns).text + ": " + c.find('./cs:Name', namespaces=ns).text,
@@ -124,10 +147,19 @@ def to_run_info(element) -> RunInfo:
     return RunInfo(id, number, description, period_start, period_end)
 
 
+def to_employee_details(tree) -> EmployeeDetails:
+    element = tree.find('.//emp:PersonalInfo_GetCurrentResult', namespaces=ns)
+    id = element.find('./emp:Id', namespaces=ns).text
+    number = element.find('./emp:Number', namespaces=ns).text
+    email_element = element.find('./emp:EmailWork', namespaces=ns)
+    email = number if email_element is None else email_element.text
+    return EmployeeDetails(id, number, email)
+
+
 def get_run_info(run):
     global spinner
     spinner.text = f"Getting run information for company {company_id} and year {year_arg}"
-    result = do_request(get_runs(year_arg))
+    result = do_request(get_runs(year_arg), com)
     spinner.succeed(f"Got run information for company {company_id} and year {year_arg}")
     if run:
         info = result.find(f'.//cs:RunInfo/[cs:ID="{run}"]', namespaces=ns)
@@ -142,8 +174,8 @@ def get_run_info(run):
 run_info = get_run_info(run_arg)
 
 spinner.text = f"Finding employees for {run_info.number} {run_info.description}"
-tree = do_request(get_employees(run_arg, year_arg))
-employeesElements = tree.findall('.//cs:EmployeeIdNumber', namespaces=ns)
+pdf_tree = do_request(get_employees(run_arg, year_arg), com)
+employeesElements = pdf_tree.findall('.//cs:EmployeeIdNumber', namespaces=ns)
 employees = list(
     map(lambda c: Employee(c.find('./cs:EmployeeId', namespaces=ns).text,
                            c.find('./cs:EmployeeNumber', namespaces=ns).text),
@@ -154,10 +186,14 @@ zip_file_name = f"run_{run_info.number}_{year_arg}.zip"
 with ShadyBar("Fetching salary slip for employees", max=len(employees)) as bar:
     with ZipFile(zip_file_name, 'w') as zip_file:
         for i, employee in enumerate(employees):
-            tree = do_request(get_payslip(employee.id, run_arg, year_arg))
-            pdf = tree.find('.//cs:PDF', namespaces=ns)
+            employee_response = do_request(get_employee(employee.id), emp)
+            employee_details = to_employee_details(employee_response)
+
+            pdf_tree = do_request(get_payslip(employee.id, run_arg, year_arg), com)
+            pdf = pdf_tree.find('.//cs:PDF', namespaces=ns)
             pdfBinary = base64.b64decode(pdf.text)
-            zip_file.writestr(f"{employee.number}_{run_info.number}_{year_arg}.pdf", pdfBinary)
+
+            zip_file.writestr(f"{employee_details.email}/{year_arg}_{run_info.number}_Salary.pdf", pdfBinary)
             bar.next()
 
 spinner.succeed(f"Wrote results to {zip_file_name}")
