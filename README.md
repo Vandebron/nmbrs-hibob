@@ -1,7 +1,6 @@
-# Nmbrs to Hibob salary slip export
+# Nmbrs to Hibob ![./resources/nmbrs_hibob.png](./resources/nmbrs_hibob_64x64.png)
 
-![./resources/nmbrs_hibob.png](./resources/nmbrs_hibob_64x64.png)
-## 
+## Salary slip PDF export
 At the time of writing there is no integration between [Nmbrs and Hibob](https://appstore.nmbrs.com/s/hibob) in the app 
 store.
 This command line application allows you to export the salary slip PDFs for a run to a zip file that can be [imported
