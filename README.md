@@ -7,6 +7,8 @@ This command line application allows you to export the salary slip PDFs for a ru
 in bulk](https://help.hibob.com/hc/en-us/articles/4409775877265-Importing-documents-in-bulk-into-Docs-in-bob) to Hibob.
 Nmbrs' `EmployeeNumber` is use as the key to link to Hibob's `Employee ID` 
 
+![Nmbrs Hibob usage](./usage.gif)
+
 ```
 usage: nmbrs_hibob [-h] [--user USER] --token TOKEN [--run RUN] --year YEAR [--company COMPANY]
 
