@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import argparse
 import requests
 import xml.etree.ElementTree as ET
@@ -9,12 +10,15 @@ from zipfile import ZipFile
 import sys
 
 parser = argparse.ArgumentParser(description='Export salary slip PDFs from Visma Nmbrs into Hibob')
-parser.add_argument('--user', '-u', help=f'API user', default='IT@vandebron.nl')
-parser.add_argument('--token', '-t', help=f'The API token https://support.nmbrs.com/hc/en-us/articles/'
-                                          f'360013384371-Nmbrs-API', required=True)
+parser.add_argument('--user', '-u', help='API user', default='IT@vandebron.nl')
+parser.add_argument('--token', '-t', help='The API token https://support.nmbrs.com/hc/en-us/articles/'
+                                          '360013384371-Nmbrs-API', required=True)
 parser.add_argument('--run', '-r', help='The run to download. Prints all runs for the year if not set.')
 parser.add_argument('--year', '-y', help='The year in which the run took place', required=True)
 parser.add_argument('--company', '-c', help='Select specific company number')
+parser.add_argument('--description', '-d', help='Will be appended to the PDFs instead of the run description')
+parser.add_argument('--email', '-e', help='Indicates whether to use company email as folder name. Otherwise employee '
+                                          'Id will be used', dest='email', action='store_true', default=False)
 args = parser.parse_args()
 
 user_arg = args.user
@@ -22,6 +26,8 @@ password_arg = args.token
 run_arg = args.run
 year_arg = args.year
 company_id = args.company
+description_arg = args.description
+email_arg = args.email
 
 
 @dataclass
@@ -180,7 +186,7 @@ employees = list(
     map(lambda c: Employee(c.find('./cs:EmployeeId', namespaces=ns).text,
                            c.find('./cs:EmployeeNumber', namespaces=ns).text),
         employeesElements))
-spinner.succeed(f"Found {len(employees)} employees for run {run_info.description}")
+spinner.succeed(f'Found {len(employees)} employees for run "{run_info.description}"')
 
 zip_file_name = f"run_{run_info.number}_{year_arg}.zip"
 with ShadyBar("Fetching salary slip for employees", max=len(employees)) as bar:
@@ -193,7 +199,11 @@ with ShadyBar("Fetching salary slip for employees", max=len(employees)) as bar:
             pdf = pdf_tree.find('.//cs:PDF', namespaces=ns)
             pdfBinary = base64.b64decode(pdf.text)
 
-            zip_file.writestr(f"{employee_details.email}/{year_arg}_{run_info.number}_Salary.pdf", pdfBinary)
+            description = run_info.description.replace(' ', '_') if description_arg is None else description_arg
+            folder_name = employee_details.email if email_arg else employee_details.number
+            file_name = f"{folder_name}/{year_arg}_{run_info.number}_{description}.pdf"
+            zip_file.writestr(file_name, pdfBinary)
+
             bar.next()
 
 spinner.succeed(f"Wrote results to {zip_file_name}")

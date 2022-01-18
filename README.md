@@ -10,7 +10,7 @@ Nmbrs' `EmployeeNumber` is use as the key to link to Hibob's `Employee ID`
 ![Nmbrs Hibob usage](./usage.gif)
 
 ```
-usage: nmbrs_hibob [-h] [--user USER] --token TOKEN [--run RUN] --year YEAR [--company COMPANY]
+usage: nmbrs_hibob [-h] [--user USER] --token TOKEN [--run RUN] --year YEAR [--company COMPANY] [--description DESCRIPTION] [--email]
 
 Export salary slip PDFs from Visma Nmbrs into Hibob
 
@@ -23,6 +23,10 @@ optional arguments:
   --year YEAR, -y YEAR  The year in which the run took place
   --company COMPANY, -c COMPANY
                         Select specific company number
+  --description DESCRIPTION, -d DESCRIPTION
+                        Will be appended to the PDFs instead of the run description
+  --email, -e           Indicates whether to use company email as folder name. Otherwise employee Id will be used
+
 ```
 
 The resulting zip file will contain folders with the customer's email addresses. Within these folders the salary slips
