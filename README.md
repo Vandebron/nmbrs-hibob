@@ -31,3 +31,22 @@ optional arguments:
 
 The resulting zip file will contain folders with the customer's email addresses. Within these folders the salary slips
 are named `<year>_<run>_Salary.pdf`.
+
+## Installation instructions
+
+### Directly from sourcecode
+Clone the repository and run:
+```shell
+> pip install pipenv
+> pipenv shell
+> python nmbrs_hibob.py -t <api_token> -y 2021
+```
+
+### From binaries
+1. Download the [latest release](https://github.com/Vandebron/nmbrs-hibob/releases/) for your operating system.
+2. On mac: 
+   1. `> xattr -d com.apple.quarantine nmbrs_hibob`
+   2. `> chmod u+x nmbrs_hibob`
+   3. `> ./nmbrs_hibob`
+3. On Windows: 
+   1. run `nmbrs_hibob.exe` from the command line
