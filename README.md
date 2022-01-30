@@ -48,5 +48,16 @@ Clone the repository and run:
    1. `> xattr -d com.apple.quarantine nmbrs_hibob`
    2. `> chmod u+x nmbrs_hibob`
    3. `> ./nmbrs_hibob`
+   4. `> caffeinate` in seperate terminal-tab to avoid disruptions while running
 3. On Windows: 
    1. run `nmbrs_hibob.exe` from the command line
+
+
+### Bob import instruction
+1. In the menu 'People' go to 'Import'
+2. Select 'Employee Documents Import`
+3. Upload export from Nmbrs (.zip file)
+4. Import configruations with Matching Method:
+   1. 'Folder name'
+   2. 'exactly matches'
+   3. 'Employee ID in Company'
