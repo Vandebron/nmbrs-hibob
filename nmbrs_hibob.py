@@ -13,8 +13,8 @@ parser = argparse.ArgumentParser(description='Export salary slip PDFs from Visma
 parser.add_argument('--user', '-u', help='API user', default='IT@vandebron.nl')
 parser.add_argument('--token', '-t', help='The API token https://support.nmbrs.com/hc/en-us/articles/'
                                           '360013384371-Nmbrs-API', required=True)
-parser.add_argument('--run', '-r', help='The run to download. Prints all runs for the year if not set.')
-parser.add_argument('--year', '-y', help='The year in which the run took place', required=True)
+parser.add_argument('--run', '-r', help='The run to download. Prints all runs for the year if not set.', type=int)
+parser.add_argument('--year', '-y', help='The year in which the run took place', required=True, type=int)
 parser.add_argument('--annual', '-a', help='Fetch annual statements for the employees in a run', dest='annual',
                     action='store_true', default=False)
 parser.add_argument('--company', '-c', help='Select specific company number')
@@ -46,6 +46,7 @@ class RunInfo:
 class Employee:
     id: str
     number: str
+    startDate: str
     endDate: str
 
 
@@ -201,7 +202,7 @@ def find_employees_for_run(run, year, run_info_arg):
     employees_elements = employee_tree.findall('.//cs:EmployeeIdNumber', namespaces=ns)
     employees = list(
         map(lambda c: Employee(c.find('./cs:EmployeeId', namespaces=ns).text,
-                               c.find('./cs:EmployeeNumber', namespaces=ns).text, ""),
+                               c.find('./cs:EmployeeNumber', namespaces=ns).text, "", ""),
             employees_elements))
     spinner.succeed(f'Found {len(employees)} employees for run "{run_info_arg.description}"')
     return employees
@@ -214,10 +215,14 @@ def find_employees_for_year(year):
     employees_elements = employee_tree.findall('.//emp:EmployeeEmploymentItem', namespaces=ns)
     all_employees = list(
         map(lambda c: Employee(c.find('./emp:EmployeeId', namespaces=ns).text, "",
+                               c.find('.//emp:StartDate', namespaces=ns).text,
                                None if c.find('.//emp:EndDate', namespaces=ns) is None else c.find('.//emp:EndDate',
                                                                                                    namespaces=ns).text),
             employees_elements))
-    active_employees = list(filter(lambda c: c.endDate is None or c.endDate > f'{year}-01-21T00:00:00', all_employees))
+    this_year = f'{year}-01-01T00:00:00'
+    next_year = f'{year + 1}-01-01T00:00:00'
+    active_employees = list(
+        filter(lambda c: c.startDate < next_year and (c.endDate is None or c.endDate > this_year), all_employees))
     spinner.succeed(f'Found {len(active_employees)} employees with active contract in {year}')
     return active_employees
 
