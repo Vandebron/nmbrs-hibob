@@ -130,14 +130,15 @@ def get_employee(employee_id):
       </emp:PersonalInfo_GetCurrent>"""
 
 
-def do_request(body, service):
+def do_request(body, service, print_response=False):
     req = create_request(user_arg, password_arg, body, service)
     # print(req)
     response = requests.post(f"{service['url']}.asmx", data=req,
                              headers={'content-type': 'text/xml; charset=utf-8'})
     if not response.ok:
         sys.exit(response.text)
-    # print(response.text)
+    if print_response:
+        print(response.text)
     return ET.ElementTree(ET.fromstring(response.text))
 
 
@@ -230,7 +231,7 @@ def find_employees_for_year(year):
 def fetch_annual_statements(year):
     employees = find_employees_for_year(year)
     zip_file_name = f"yearly_statements_{year}.zip"
-    with ShadyBar("Fetching salary slip for employees", max=len(employees)) as bar:
+    with ShadyBar("Fetching annual statement for employees", max=len(employees)) as bar:
         with ZipFile(zip_file_name, 'w') as zip_file:
             for i, employee in enumerate(employees):
                 employee_response = do_request(get_employee(employee.id), emp)
@@ -239,12 +240,12 @@ def fetch_annual_statements(year):
                 request_body = get_annual_statement(employee.id, year)
 
                 response = do_request(request_body, emp)
-                pdf = response.find(f'.//emp:PDF', namespaces=ns)
+                pdfs = response.findall(f'.//emp:PDF', namespaces=ns)
 
-                if pdf is not None:
+                for index, pdf in enumerate(pdfs):
                     description = "Annual_Statement" if description_arg is None else description_arg
                     folder_name = employee_details.email if email_arg else employee_details.number
-                    file_name = f"{folder_name}/{year}_{description}.pdf"
+                    file_name = f"{folder_name}/{year}_{description}_{index}.pdf"
                     zip_file.writestr(file_name, base64.b64decode(pdf.text))
 
                 bar.next()
@@ -263,12 +264,12 @@ def fetch_salary_slips(year, run):
 
                 request_body = get_payslip(employee.id, run_arg, year)
                 response = do_request(request_body, com)
-                pdf = response.find(f'.//cs:PDF', namespaces=ns)
+                pdfs = response.findall(f'.//cs:PDF', namespaces=ns)
 
-                if pdf is not None:
+                for index, pdf in enumerate(pdfs):
                     description = run_info.description.replace(' ', '_') if description_arg is None else description_arg
                     folder_name = employee_details.email if email_arg else employee_details.number
-                    file_name = f"{folder_name}/{year}_{run_info.number}_{description}.pdf"
+                    file_name = f"{folder_name}/{year}_{run_info.number}_{description}_{index}.pdf"
                     zip_file.writestr(file_name, base64.b64decode(pdf.text))
 
                 bar.next()
