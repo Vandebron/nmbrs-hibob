@@ -240,12 +240,12 @@ def fetch_annual_statements(year):
                 request_body = get_annual_statement(employee.id, year)
 
                 response = do_request(request_body, emp)
-                pdf = response.find(f'.//emp:PDF', namespaces=ns)
+                pdfs = response.findall(f'.//emp:PDF', namespaces=ns)
 
-                if pdf is not None:
+                for index, pdf in enumerate(pdfs):
                     description = "Annual_Statement" if description_arg is None else description_arg
                     folder_name = employee_details.email if email_arg else employee_details.number
-                    file_name = f"{folder_name}/{year}_{description}.pdf"
+                    file_name = f"{folder_name}/{year}_{description}_{index}.pdf"
                     zip_file.writestr(file_name, base64.b64decode(pdf.text))
 
                 bar.next()
