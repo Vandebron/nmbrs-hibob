@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 import base64
 from halo import Halo
 from progress.bar import ShadyBar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from zipfile import ZipFile
 import sys
 
@@ -23,14 +23,17 @@ parser.add_argument('--email', '-e', help='Indicates whether to use company emai
                                           'Id will be used', dest='email', action='store_true', default=False)
 args = parser.parse_args()
 
-user_arg = args.user
-password_arg = args.token
-run_arg = args.run
-year_arg = args.year
-company_id = args.company
-description_arg = args.description
-email_arg = args.email
-annual_arg = args.annual
+
+@dataclass
+class Arguments:
+    user_arg: str = args.user
+    password_arg: str = args.token
+    run_arg: str = args.run
+    year_arg: str = args.year
+    company_id: str = args.company
+    description_arg: str = args.description
+    email_arg: str = args.email
+    annual_arg: str = args.annual
 
 
 @dataclass
@@ -57,8 +60,23 @@ class EmployeeDetails:
     email: str
 
 
-com = {'ns': 'com', 'url': 'https://api.nmbrs.nl/soap/v2.1/CompanyService'}
-emp = {'ns': 'emp', 'url': 'https://api.nmbrs.nl/soap/v2.1/EmployeeService'}
+com: dict[str, str] = {
+    'ns': 'com',
+    'url': 'https://api.nmbrs.nl/soap/v3/CompanyService'
+}
+
+emp: dict[str, str] = {
+    'ns': 'emp',
+    'url': 'https://api.nmbrs.nl/soap/v3/EmployeeService'
+}
+
+ns: dict[str, str] = {
+    'soap': "http://schemas.xmlsoap.org/soap/envelope/",
+    'xsi': "http://www.w3.org/2001/XMLSchema-instance",
+    'xsd': "http://www.w3.org/2001/XMLSchema",
+    'cs': 'https://api.nmbrs.nl/soap/v3/CompanyService',
+    'emp': 'https://api.nmbrs.nl/soap/v3/EmployeeService'
+}
 
 
 def create_request(user, password, payload, namespace):
@@ -68,10 +86,10 @@ def create_request(user, password, payload, namespace):
     template = f"""
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:{ns_name}="{url}">
     <soapenv:Header>
-      <{ns_prefix}AuthHeader>
+      <{ns_prefix}AuthHeaderWithDomain>
          <{ns_prefix}Username>{user}</{ns_prefix}Username>
          <{ns_prefix}Token>{password}</{ns_prefix}Token>
-      </{ns_prefix}AuthHeader>
+      </{ns_prefix}AuthHeaderWithDomain>
    </soapenv:Header>
    <soapenv:Body>
       {payload}
@@ -131,8 +149,7 @@ def get_employee(employee_id):
 
 
 def do_request(body, service, print_response=False):
-    req = create_request(user_arg, password_arg, body, service)
-    # print(req)
+    req = create_request(Arguments.user_arg, Arguments.password_arg, body, service)
     response = requests.post(f"{service['url']}.asmx", data=req,
                              headers={'content-type': 'text/xml; charset=utf-8'})
     if not response.ok:
@@ -140,27 +157,6 @@ def do_request(body, service, print_response=False):
     if print_response:
         print(response.text)
     return ET.ElementTree(ET.fromstring(response.text))
-
-
-ns = {
-    'soap': "http://schemas.xmlsoap.org/soap/envelope/",
-    'xsi': "http://www.w3.org/2001/XMLSchema-instance",
-    'xsd': "http://www.w3.org/2001/XMLSchema",
-    'cs': 'https://api.nmbrs.nl/soap/v2.1/CompanyService',
-    'emp': 'https://api.nmbrs.nl/soap/v2.1/EmployeeService'
-}
-spinner = Halo(text='Determining company ID..', spinner='dots')
-spinner.start()
-
-pdf_tree = do_request(get_company_info(), com)
-companies = pdf_tree.findall('.//cs:Company', namespaces=ns)
-if len(companies) > 1:
-    companies = list(
-        map(lambda c: c.find('./cs:ID', namespaces=ns).text + ": " + c.find('./cs:Name', namespaces=ns).text,
-            companies))
-    spinner.fail(f"More than one company found. Choose between {companies} via --company.")
-
-company_id = companies.pop().find('./cs:ID', namespaces=ns).text
 
 
 def to_run_info(element) -> RunInfo:
@@ -183,9 +179,9 @@ def to_employee_details(tree) -> EmployeeDetails:
 
 def get_run_info(run):
     global spinner
-    spinner.text = f"Getting run information for company {company_id} and year {year_arg}"
-    result = do_request(get_runs(year_arg), com)
-    spinner.succeed(f"Got run information for company {company_id} and year {year_arg}")
+    spinner.text = f"Getting run information for company {company_id} and year {Arguments.year_arg}"
+    result = do_request(get_runs(Arguments.year_arg), com)
+    spinner.succeed(f"Got run information for company {company_id} and year {Arguments.year_arg}")
     if run:
         info = result.find(f'.//cs:RunInfo/[cs:ID="{run}"]', namespaces=ns)
         return to_run_info(info)
@@ -243,8 +239,8 @@ def fetch_annual_statements(year):
                 pdfs = response.findall(f'.//emp:PDF', namespaces=ns)
 
                 for index, pdf in enumerate(pdfs):
-                    description = "Annual_Statement" if description_arg is None else description_arg
-                    folder_name = employee_details.email if email_arg else employee_details.number
+                    description = "Annual_Statement" if Arguments.description_arg is None else Arguments.description_arg
+                    folder_name = employee_details.email if Arguments.email_arg else employee_details.number
                     file_name = f"{folder_name}/{year}_{description}_{index}.pdf"
                     zip_file.writestr(file_name, base64.b64decode(pdf.text))
 
@@ -262,13 +258,14 @@ def fetch_salary_slips(year, run):
                 employee_response = do_request(get_employee(employee.id), emp)
                 employee_details = to_employee_details(employee_response)
 
-                request_body = get_payslip(employee.id, run_arg, year)
+                request_body = get_payslip(employee.id, Arguments.run_arg, year)
                 response = do_request(request_body, com)
                 pdfs = response.findall(f'.//cs:PDF', namespaces=ns)
 
                 for index, pdf in enumerate(pdfs):
-                    description = run_info.description.replace(' ', '_') if description_arg is None else description_arg
-                    folder_name = employee_details.email if email_arg else employee_details.number
+                    description = run_info.description.replace(' ', '_') if Arguments.description_arg is None \
+                        else Arguments.description_arg
+                    folder_name = employee_details.email if Arguments.email_arg else employee_details.number
                     file_name = f"{folder_name}/{year}_{run_info.number}_{description}_{index}.pdf"
                     zip_file.writestr(file_name, base64.b64decode(pdf.text))
 
@@ -276,7 +273,22 @@ def fetch_salary_slips(year, run):
         spinner.succeed(f"Wrote payslips to {zip_file_name}")
 
 
-if annual_arg:
-    fetch_annual_statements(year_arg)
-else:
-    fetch_salary_slips(year_arg, run_arg)
+if __name__ == '__main__':
+    spinner = Halo(text='Determining company ID..', spinner='dots')
+    spinner.start()
+
+    pdf_tree = do_request(get_company_info(), com)
+    companies = pdf_tree.findall('.//cs:Company', namespaces=ns)
+
+    if len(companies) > 1:
+        companies = list(
+            map(lambda c: c.find('./cs:ID', namespaces=ns).text + ": " + c.find('./cs:Name', namespaces=ns).text,
+                companies))
+        spinner.fail(f"More than one company found. Choose between {companies} via --company.")
+
+    company_id = companies.pop().find('./cs:ID', namespaces=ns).text
+
+    if Arguments.annual_arg:
+        fetch_annual_statements(Arguments.year_arg)
+    else:
+        fetch_salary_slips(Arguments.year_arg, Arguments.run_arg)
