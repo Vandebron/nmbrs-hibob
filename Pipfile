@@ -5,7 +5,7 @@ name = "pypi"
 
 [packages]
 lxml = "==4.7.1"
-requests = "==2.27.1"
+requests = "==2.32.2"
 halo = "==0.0.31"
 progress = "==1.6"
 
